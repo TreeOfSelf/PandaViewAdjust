@@ -13,7 +13,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class PandaViewConfig {
-    private static final String CONFIG_FILE = "config/PandaViewConfig.json";
+    private static final String CONFIG_FILE = "config/PandaViewAdjust.json";
     private List<ConfigEntry> configEntries = new ArrayList<>();
 
     public PandaViewConfig() {
