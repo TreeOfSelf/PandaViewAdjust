@@ -10,8 +10,14 @@ public class PandaViewAdjust implements ModInitializer {
 	public static final String MOD_ID = "panda-view-adjust";
 	public static final Logger LOGGER = LoggerFactory.getLogger(MOD_ID);
 	private PandaViewConfig.ConfigEntry lastEntry = null;
+	private PandaViewConfig.ConfigEntry pendingEntry = null;
 	private long lastChangeTick = 0;
 	private PandaViewConfig config;
+	// Counter to track consecutive matches of the same pending entry
+	private int pendingMatchCount = 0;
+	// Required consecutive matches before applying change
+	private static final int REQUIRED_MATCHES = 6;
+
 	@Override
 	public void onInitialize() {
 		LOGGER.info("PandaViewAdjust Started!");
@@ -20,7 +26,7 @@ public class PandaViewAdjust implements ModInitializer {
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerLifecycleEvents.SERVER_STARTED.register(this::checkServerStats);
 
 		net.fabricmc.fabric.api.event.lifecycle.v1.ServerTickEvents.END_SERVER_TICK.register(server -> {
-			if (server.getTicks() % 20  == 0) {
+			if (server.getTicks() % 20 == 0) {
 				checkServerStats(server);
 			}
 		});
@@ -31,42 +37,47 @@ public class PandaViewAdjust implements ModInitializer {
 		double mspt = server.getAverageTickTime();
 		long currentTick = server.getTicks();
 
-		PandaViewConfig.ConfigEntry bestEntry = getConfigEntry(playerCount, mspt);
-		if (bestEntry == null) return;
+		PandaViewConfig.ConfigEntry candidate = getConfigEntry(playerCount, mspt);
+		if (candidate == null) return;
 
-		// Only allow changes every 10 seconds (200 ticks)
-		if (currentTick - lastChangeTick < 200 /* * 6*/) return;
+		// Wait at least 200 ticks before any change
+		if (currentTick - lastChangeTick < 200) return;
 
-		if (lastEntry != null && bestEntry == lastEntry) return;
-
-		if (lastEntry != null) {
-			// Dynamic buffer based on MSPT difference
-			double msptGap = Math.abs(bestEntry.maxMSPT - lastEntry.maxMSPT);
-			double dynamicBuffer = Math.max(msptGap * 0.5, 2.0); // at least 2.0
-
-			boolean msptStillWithinBuffer = mspt <= lastEntry.maxMSPT + dynamicBuffer;
-			boolean playersStillOkay = playerCount <= lastEntry.maxPlayerCount;
-
-			// Logging MSPT and dynamic buffer check
-			LOGGER.info("Current MSPT: {}", mspt);
-			LOGGER.info("Last maxMSPT: {}", lastEntry.maxMSPT);
-			LOGGER.info("Dynamic buffer: {}", dynamicBuffer);
-
-			if (msptStillWithinBuffer && playersStillOkay) {
-				// Don't switch yet
-				return;
-			}
+		// If already using this config, no need to change
+		if (lastEntry != null && candidate == lastEntry) {
+			pendingEntry = null; // reset
+			pendingMatchCount = 0; // reset counter
+			return;
 		}
 
-		// Apply new settings
-		LOGGER.info("Applying new view settings: viewDistance={}, simulationDistance={}", bestEntry.viewDistance, bestEntry.simulationDistance);
-		server.getPlayerManager().setSimulationDistance(bestEntry.simulationDistance);
-		server.getPlayerManager().setViewDistance(bestEntry.viewDistance);
-		lastEntry = bestEntry;
-		lastChangeTick = currentTick;
+		// First time selecting a new candidate or different from current pending
+		if (pendingEntry == null || pendingEntry != candidate) {
+			// Reset counter and set new pending entry
+			pendingMatchCount = 1; // First match
+			pendingEntry = candidate;
+			LOGGER.info("Pending view setting change to: viewDistance={}, simulationDistance={} (1/{} matches)",
+					pendingEntry.viewDistance, pendingEntry.simulationDistance, REQUIRED_MATCHES);
+			return;
+		}
+
+		// Consecutive match for the same pending entry
+		pendingMatchCount++;
+		LOGGER.info("Pending view setting match: viewDistance={}, simulationDistance={} ({}/{} matches)",
+				pendingEntry.viewDistance, pendingEntry.simulationDistance, pendingMatchCount, REQUIRED_MATCHES);
+
+		// Only apply after reaching required consecutive matches
+		if (pendingMatchCount >= REQUIRED_MATCHES) {
+			LOGGER.info("Applying new view settings: viewDistance={}, simulationDistance={}",
+					pendingEntry.viewDistance, pendingEntry.simulationDistance);
+			server.getPlayerManager().setSimulationDistance(pendingEntry.simulationDistance);
+			server.getPlayerManager().setViewDistance(pendingEntry.viewDistance);
+
+			lastEntry = pendingEntry;
+			pendingEntry = null;
+			pendingMatchCount = 0;
+			lastChangeTick = currentTick;
+		}
 	}
-
-
 
 	private PandaViewConfig.@Nullable ConfigEntry getConfigEntry(int playerCount, double mspt) {
 		PandaViewConfig.ConfigEntry bestEntry = null;
