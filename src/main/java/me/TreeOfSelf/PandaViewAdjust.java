@@ -55,20 +55,14 @@ public class PandaViewAdjust implements ModInitializer {
 			// Reset counter and set new pending entry
 			pendingMatchCount = 1; // First match
 			pendingEntry = candidate;
-			LOGGER.info("Pending view setting change to: viewDistance={}, simulationDistance={} (1/{} matches)",
-					pendingEntry.viewDistance, pendingEntry.simulationDistance, REQUIRED_MATCHES);
 			return;
 		}
 
 		// Consecutive match for the same pending entry
 		pendingMatchCount++;
-		LOGGER.info("Pending view setting match: viewDistance={}, simulationDistance={} ({}/{} matches)",
-				pendingEntry.viewDistance, pendingEntry.simulationDistance, pendingMatchCount, REQUIRED_MATCHES);
 
 		// Only apply after reaching required consecutive matches
 		if (pendingMatchCount >= REQUIRED_MATCHES) {
-			LOGGER.info("Applying new view settings: viewDistance={}, simulationDistance={}",
-					pendingEntry.viewDistance, pendingEntry.simulationDistance);
 			server.getPlayerManager().setSimulationDistance(pendingEntry.simulationDistance);
 			server.getPlayerManager().setViewDistance(pendingEntry.viewDistance);
 
