@@ -13,10 +13,10 @@ public class PandaViewAdjust implements ModInitializer {
 	private PandaViewConfig.ConfigEntry pendingEntry = null;
 	private long lastChangeTick = 0;
 	private PandaViewConfig config;
-	// Counter to track consecutive matches of the same pending entry
 	private int pendingMatchCount = 0;
-	// Required consecutive matches before applying change
 	private static final int REQUIRED_MATCHES = 6;
+
+	private static final double MSPT_BUFFER_PERCENTAGE = 0.15;
 
 	@Override
 	public void onInitialize() {
@@ -40,37 +40,54 @@ public class PandaViewAdjust implements ModInitializer {
 		PandaViewConfig.ConfigEntry candidate = getConfigEntry(playerCount, mspt);
 		if (candidate == null) return;
 
-		// Wait at least 200 ticks before any change
 		if (currentTick - lastChangeTick < 200) return;
 
-		// If already using this config, no need to change
-		if (lastEntry != null && candidate == lastEntry) {
-			pendingEntry = null; // reset
-			pendingMatchCount = 0; // reset counter
+		if (lastEntry != null && isWithinBuffer(lastEntry, playerCount, mspt)) {
+			pendingEntry = null;
+			pendingMatchCount = 0;
 			return;
 		}
 
-		// First time selecting a new candidate or different from current pending
+		if (lastEntry != null && candidate == lastEntry) {
+			pendingEntry = null;
+			pendingMatchCount = 0;
+			return;
+		}
+
 		if (pendingEntry == null || pendingEntry != candidate) {
-			// Reset counter and set new pending entry
-			pendingMatchCount = 1; // First match
+			pendingMatchCount = 1;
 			pendingEntry = candidate;
 			return;
 		}
 
-		// Consecutive match for the same pending entry
 		pendingMatchCount++;
 
-		// Only apply after reaching required consecutive matches
 		if (pendingMatchCount >= REQUIRED_MATCHES) {
 			server.getPlayerManager().setSimulationDistance(pendingEntry.simulationDistance);
 			server.getPlayerManager().setViewDistance(pendingEntry.viewDistance);
+
+			LOGGER.info("Changed view settings to: view={}, sim={}",
+					pendingEntry.viewDistance,
+					pendingEntry.simulationDistance);
 
 			lastEntry = pendingEntry;
 			pendingEntry = null;
 			pendingMatchCount = 0;
 			lastChangeTick = currentTick;
 		}
+	}
+
+
+	private boolean isWithinBuffer(PandaViewConfig.ConfigEntry entry, int playerCount, double mspt) {
+		if (entry.maxMSPT == 0) return false;
+
+		double bufferAmount = entry.maxMSPT * MSPT_BUFFER_PERCENTAGE;
+
+		boolean msptInBuffer = mspt <= entry.maxMSPT + bufferAmount;
+
+		boolean playerCountValid = (entry.maxPlayerCount == 0 || playerCount <= entry.maxPlayerCount);
+
+		return msptInBuffer && playerCountValid;
 	}
 
 	private PandaViewConfig.@Nullable ConfigEntry getConfigEntry(int playerCount, double mspt) {
