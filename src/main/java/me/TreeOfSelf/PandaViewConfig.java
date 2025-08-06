@@ -15,6 +15,8 @@ import java.util.List;
 public class PandaViewConfig {
     private static final String CONFIG_FILE = "config/PandaViewAdjust.json";
     private List<ConfigEntry> configEntries = new ArrayList<>();
+    private int requiredMatches = 6;
+    private double msptBufferPercentage = 0.15;
 
     public PandaViewConfig() {
         File configDir = new File("config");
@@ -32,6 +34,11 @@ public class PandaViewConfig {
 
     private void createDefaultConfig(File configFile) {
         try (FileWriter writer = new FileWriter(configFile)) {
+            JsonObject rootObject = new JsonObject();
+            
+            rootObject.addProperty("requiredMatches", 6);
+            rootObject.addProperty("msptBufferPercentage", 0.15);
+            
             JsonArray defaultConfig = new JsonArray();
 
             JsonObject entry1 = new JsonObject();
@@ -62,8 +69,10 @@ public class PandaViewConfig {
             entry4.addProperty("simulationDistance", 3);
             defaultConfig.add(entry4);
 
+            rootObject.add("entries", defaultConfig);
+
             Gson gson = new GsonBuilder().setPrettyPrinting().create();
-            gson.toJson(defaultConfig, writer);
+            gson.toJson(rootObject, writer);
 
             System.out.println("Created default PandaViewConfig.json");
         } catch (IOException ignored) {
@@ -73,7 +82,32 @@ public class PandaViewConfig {
     private void loadConfig() {
         try (FileReader reader = new FileReader(new File(CONFIG_FILE))) {
             Gson gson = new Gson();
-            JsonArray jsonArray = gson.fromJson(reader, JsonArray.class);
+            
+            JsonObject rootObject = null;
+            JsonArray jsonArray = null;
+            boolean isOldFormat = false;
+            
+            try {
+                rootObject = gson.fromJson(reader, JsonObject.class);
+                if (rootObject.has("requiredMatches")) {
+                    this.requiredMatches = rootObject.get("requiredMatches").getAsInt();
+                }
+                if (rootObject.has("msptBufferPercentage")) {
+                    this.msptBufferPercentage = rootObject.get("msptBufferPercentage").getAsDouble();
+                }
+                
+                if (rootObject.has("entries")) {
+                    jsonArray = rootObject.getAsJsonArray("entries");
+                } else {
+                    jsonArray = rootObject.getAsJsonArray();
+                }
+            } catch (JsonParseException e) {
+                reader.close();
+                try (FileReader reader2 = new FileReader(new File(CONFIG_FILE))) {
+                    jsonArray = gson.fromJson(reader2, JsonArray.class);
+                    isOldFormat = true;
+                }
+            }
 
             for (var jsonElement : jsonArray) {
                 if (jsonElement.isJsonObject()) {
@@ -96,15 +130,54 @@ public class PandaViewConfig {
             } else {
                 System.out.println("Loaded " + configEntries.size() + " configuration entries");
             }
+            
+            if (isOldFormat) {
+                migrateToNewFormat();
+            }
         } catch (IOException e) {
             File configFile = new File(CONFIG_FILE);
             createDefaultConfig(configFile);
             loadConfig();
         }
     }
+    
+    private void migrateToNewFormat() {
+        try (FileWriter writer = new FileWriter(new File(CONFIG_FILE))) {
+            JsonObject rootObject = new JsonObject();
+            
+            rootObject.addProperty("requiredMatches", this.requiredMatches);
+            rootObject.addProperty("msptBufferPercentage", this.msptBufferPercentage);
+            
+            JsonArray entriesArray = new JsonArray();
+            for (ConfigEntry entry : configEntries) {
+                JsonObject entryObject = new JsonObject();
+                entryObject.addProperty("maxPlayerCount", entry.maxPlayerCount);
+                entryObject.addProperty("maxMSPT", entry.maxMSPT);
+                entryObject.addProperty("viewDistance", entry.viewDistance);
+                entryObject.addProperty("simulationDistance", entry.simulationDistance);
+                entriesArray.add(entryObject);
+            }
+            
+            rootObject.add("entries", entriesArray);
+            
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            gson.toJson(rootObject, writer);
+            
+            System.out.println("Migrated config to new format");
+        } catch (IOException ignored) {
+        }
+    }
 
     public List<ConfigEntry> getConfigEntries() {
         return configEntries;
+    }
+
+    public int getRequiredMatches() {
+        return requiredMatches;
+    }
+
+    public double getMsptBufferPercentage() {
+        return msptBufferPercentage;
     }
 
     public static class ConfigEntry {

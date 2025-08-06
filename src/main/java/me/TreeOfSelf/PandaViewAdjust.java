@@ -14,9 +14,6 @@ public class PandaViewAdjust implements ModInitializer {
 	private long lastChangeTick = 0;
 	private PandaViewConfig config;
 	private int pendingMatchCount = 0;
-	private static final int REQUIRED_MATCHES = 6;
-
-	private static final double MSPT_BUFFER_PERCENTAGE = 0.15;
 
 	@Override
 	public void onInitialize() {
@@ -62,7 +59,7 @@ public class PandaViewAdjust implements ModInitializer {
 
 		pendingMatchCount++;
 
-		if (pendingMatchCount >= REQUIRED_MATCHES) {
+		if (pendingMatchCount >= config.getRequiredMatches()) {
 			server.getPlayerManager().setSimulationDistance(pendingEntry.simulationDistance);
 			server.getPlayerManager().setViewDistance(pendingEntry.viewDistance);
 
@@ -81,7 +78,7 @@ public class PandaViewAdjust implements ModInitializer {
 	private boolean isWithinBuffer(PandaViewConfig.ConfigEntry entry, int playerCount, double mspt) {
 		if (entry.maxMSPT == 0) return false;
 
-		double bufferAmount = entry.maxMSPT * MSPT_BUFFER_PERCENTAGE;
+		double bufferAmount = entry.maxMSPT * config.getMsptBufferPercentage();
 
 		boolean msptInBuffer = mspt <= entry.maxMSPT + bufferAmount;
 
