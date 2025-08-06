@@ -14,24 +14,28 @@ This is useful for keeping server MSPT at a reasonable level, even with a lot of
 config/PandaViewConfig.json generated at runtime
 
 ```
-[
-  //The best acceptble view & simulation distance can be at the top
-  { // 5 or less players, 20 or less MSPT
-    "maxPlayerCount": 5, //Max amount of players for this configuration (can be 0 to ignore)
-    "maxMSPT": 20,    //Max amount of MSPT for this configuration (can be 0 to ignore)
-    "viewDistance": 32, //What to set the view distance to at this configuration
-    "simulationDistance": 6 //What to set the simulation distance to at this configuration
-  },
+{
+  "requiredMatches": 6, // Number of consecutive checks (20-tick intervals) that must match a configuration before applying it. Higher values = more stable but slower to respond to changes
+  "msptBufferPercentage": 0.15, // Buffer zone as a percentage of maxMSPT. If current MSPT is within (maxMSPT + maxMSPT * buffer), it won't trigger a change. Prevents rapid switching between configs
+  "entries": [
+    //The best acceptable view & simulation distance can be at the top
+    { // 5 or less players, 20 or less MSPT
+      "maxPlayerCount": 5, //Max amount of players for this configuration (can be 0 to ignore)
+      "maxMSPT": 20,    //Max amount of MSPT for this configuration (can be 0 to ignore)
+      "viewDistance": 32, //What to set the view distance to at this configuration
+      "simulationDistance": 6 //What to set the simulation distance to at this configuration
+    },
 
-  // ... Steps between
+    // ... Steps between
 
-  {  //The worst acceptable view & simulation distances can be at the bottom
-    "maxPlayerCount": 0, 
-    "maxMSPT": 0,
-    "viewDistance": 3,
-    "simulationDistance": 3
-  }
-]
+    {  //The worst acceptable view & simulation distances can be at the bottom
+      "maxPlayerCount": 0, 
+      "maxMSPT": 0,
+      "viewDistance": 3,
+      "simulationDistance": 3
+    }
+  ]
+}
 ```
 
 ## Try it out
