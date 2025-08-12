@@ -80,7 +80,7 @@ public class PandaViewAdjust implements ModInitializer {
 
 		double bufferAmount = entry.maxMSPT * config.getMsptBufferPercentage();
 
-		boolean msptInBuffer = mspt <= entry.maxMSPT + bufferAmount;
+		boolean msptInBuffer = mspt > entry.maxMSPT && mspt <= entry.maxMSPT + bufferAmount;
 
 		boolean playerCountValid = (entry.maxPlayerCount == 0 || playerCount <= entry.maxPlayerCount);
 
